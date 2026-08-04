@@ -32,5 +32,47 @@
   <!-- Le chef d'orchestre -->
   <script type="module" src="app.js"></script>
 
+  <!-- Activer le fonctionnement hors-ligne -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
+
+</body>
+</html><!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELIAN</title>
+
+  <!-- Apparence -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Installation (PWA) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#3b6ea5">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+
+  <!-- Barre de navigation -->
+  <nav id="menu">
+    <div class="menu-titre">ELIAN</div>
+    <button class="menu-item" data-page="plan">Plan de classe</button>
+    <button class="menu-item" data-page="edt">Emploi du temps</button>
+    <button class="menu-item" data-page="calendrier">Calendrier</button>
+    <button class="menu-item" data-page="suivi">Suivi</button>
+    <button class="menu-item" data-page="cahier">Cahier</button>
+    <button class="menu-item" data-page="import">Import / Export</button>
+  </nav>
+
+  <!-- Zone où s'affiche la page choisie -->
+  <main id="app"></main>
+
+  <!-- Le chef d'orchestre -->
+  <script type="module" src="app.js"></script>
+
 </body>
 </html>
