@@ -223,3 +223,243 @@ body {
   background: var(--fond);
   color: var(--texte-doux);
 }
+
+/* Barre de navigation des semaines */
+.barre-semaine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.barre-semaine select {
+  padding: 8px;
+  border: 1px solid var(--bordure);
+  border-radius: 8px;
+  font-size: 14px;
+}/* ===================================================
+   ELIAN — Apparence
+   Sobre, clair, lisible. Un bleu doux en accent.
+   =================================================== */
+
+/* Les couleurs de l'appli, définies une fois pour toutes */
+:root {
+  --fond: #f7f8fa;          /* fond général, très clair */
+  --carte: #ffffff;         /* fond des blocs et cartes */
+  --texte: #2b2f36;         /* texte principal */
+  --texte-doux: #6b7280;    /* texte secondaire, gris */
+  --accent: #3b6ea5;        /* le bleu d'ELIAN */
+  --accent-clair: #e8f0f8;  /* bleu très pâle, pour les survols */
+  --bordure: #e2e5ea;       /* lignes et séparations */
+  --ombre: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Remise à zéro douce */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--fond);
+  color: var(--texte);
+  line-height: 1.5;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ---------- Barre de navigation ---------- */
+#menu {
+  width: 210px;
+  background: var(--carte);
+  border-right: 1px solid var(--bordure);
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.menu-titre {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 1px;
+  padding: 8px 12px 20px;
+}
+
+.menu-item {
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--texte);
+  font-size: 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.menu-item:hover {
+  background: var(--accent-clair);
+}
+
+/* La page active dans le menu */
+.menu-item.actif {
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* ---------- Zone de contenu ---------- */
+#app {
+  flex: 1;
+  padding: 28px 32px;
+  overflow-y: auto;
+}
+
+/* Titres de page */
+#app h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+#app h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 20px 0 10px;
+}
+
+/* Petit texte gris d'explication */
+.hint {
+  color: var(--texte-doux);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+/* ---------- Cartes (blocs blancs) ---------- */
+.carte {
+  background: var(--carte);
+  border: 1px solid var(--bordure);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--ombre);
+  margin-bottom: 18px;
+}
+
+/* ---------- Boutons ---------- */
+.bouton {
+  padding: 10px 16px;
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.bouton:hover {
+  opacity: 0.9;
+}
+
+.bouton-doux {
+  background: var(--accent-clair);
+  color: var(--accent);
+}
+
+/* ---------- Messages d'état ---------- */
+.status {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--texte-doux);
+}
+
+/* ---------- Sur petit écran : menu en haut ---------- */
+@media (max-width: 700px) {
+  body {
+    flex-direction: column;
+  }
+  #menu {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid var(--bordure);
+    padding: 12px;
+  }
+  .menu-titre {
+    width: 100%;
+    padding: 4px 8px 12px;
+  }
+}
+
+/* ---------- Emploi du temps ---------- */
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.pastille {
+  padding: 8px 14px;
+  border: 1px solid var(--bordure);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--texte);
+}
+
+.pastille.actif {
+  outline: 2px solid var(--accent);
+  font-weight: 600;
+}
+
+.grille-edt {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 560px;
+}
+
+.grille-edt th,
+.grille-edt td {
+  border: 1px solid var(--bordure);
+  padding: 8px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.grille-edt th {
+  background: var(--fond);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.entete-creneau {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.entete-creneau small {
+  font-weight: 400;
+  color: var(--texte-doux);
+}
+
+.case-edt {
+  cursor: pointer;
+  height: 44px;
+}
+
+.case-edt:hover {
+  background: var(--accent-clair) !important;
+}
+
+.case-pause {
+  background: var(--fond);
+  color: var(--texte-doux);
+}
