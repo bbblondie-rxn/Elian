@@ -157,3 +157,69 @@ body {
     padding: 4px 8px 12px;
   }
 }
+
+/* ---------- Emploi du temps ---------- */
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.pastille {
+  padding: 8px 14px;
+  border: 1px solid var(--bordure);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--texte);
+}
+
+.pastille.actif {
+  outline: 2px solid var(--accent);
+  font-weight: 600;
+}
+
+.grille-edt {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 560px;
+}
+
+.grille-edt th,
+.grille-edt td {
+  border: 1px solid var(--bordure);
+  padding: 8px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.grille-edt th {
+  background: var(--fond);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.entete-creneau {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.entete-creneau small {
+  font-weight: 400;
+  color: var(--texte-doux);
+}
+
+.case-edt {
+  cursor: pointer;
+  height: 44px;
+}
+
+.case-edt:hover {
+  background: var(--accent-clair) !important;
+}
+
+.case-pause {
+  background: var(--fond);
+  color: var(--texte-doux);
+}
