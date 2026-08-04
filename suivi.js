@@ -260,7 +260,7 @@ export async function ouvrirSuivi() {
    les liens fins (Plan, îlots) seront ajustés plus tard.
    =================================================== */
 
-import { sb } from "../supabase.js";
+import { sb } from "./supabase.js";
 
 // Les sous-onglets
 const ONGLETS = [
