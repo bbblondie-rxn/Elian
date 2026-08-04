@@ -14,6 +14,12 @@ let sequenceOuverte = null; // la séquence en cours d'édition (détail)
 let criteres = [];         // critères de la séquence ouverte
 let seances = [];          // séances de la séquence ouverte
 
+// Vue planning (prévu/réel)
+let vuePlanning = false;       // affiche-t-on la vue planning ?
+let planningClasse = null;     // classe choisie pour le planning
+let planningLignes = [];       // les lignes du planning
+let afficherReel = false;      // interrupteur prévu / réel
+
 /* ---------------------------------------------------
    Chargement
    --------------------------------------------------- */
@@ -61,7 +67,7 @@ async function ouvrirSequence(id) {
 
     const { data: seas } = await sb
       .from("seances")
-      .select("id, numero, objectif, minutage")
+      .select("id, numero, objectif, minutage, date, creneau")
       .eq("sequence_id", id)
       .order("numero");
     seances = seas || [];
@@ -158,6 +164,143 @@ async function retirerCritere(id) {
 }
 
 /* ---------------------------------------------------
+   Reconstruire la liste des cours à venir d'une classe
+   à partir de l'EDT, en sautant vacances et annulations.
+   --------------------------------------------------- */
+const JOURS_SEM = ["lundi", "mardi", "mercredi", "jeudi", "vendredi"];
+const ORDRE_CRENEAUX = ["M1", "M2", "M3", "M4", "S1", "S2", "S3", "S4"];
+
+function ajouterJoursISO(iso, n) {
+  const [a, m, j] = iso.split("-").map(Number);
+  const d = new Date(Date.UTC(a, m - 1, j + n));
+  return d.toISOString().slice(0, 10);
+}
+
+async function coursAVenir(classeId, aPartirDe) {
+  const { data: cases } = await sb
+    .from("edt_cases")
+    .select("iso_lundi, jour, creneau")
+    .eq("annee_id", anneeId)
+    .eq("classe_id", classeId);
+  if (!cases || !cases.length) return [];
+
+  const { data: vac } = await sb
+    .from("jours_speciaux")
+    .select("date")
+    .eq("annee_id", anneeId)
+    .eq("type", "vacances");
+  const joursVacances = new Set((vac || []).map((v) => v.date));
+
+  const { data: annuls } = await sb
+    .from("annulations")
+    .select("date, creneau")
+    .eq("annee_id", anneeId);
+  const annulSet = new Set((annuls || []).map((a) => `${a.date}|${a.creneau}`));
+
+  const cours = [];
+  cases.forEach((c) => {
+    const decalage = JOURS_SEM.indexOf(c.jour);
+    if (decalage < 0) return;
+    const date = ajouterJoursISO(c.iso_lundi, decalage);
+    if (date < aPartirDe) return;
+    if (joursVacances.has(date)) return;
+    if (annulSet.has(`${date}|${c.creneau}`)) return;
+    cours.push({ date, creneau: c.creneau });
+  });
+
+  cours.sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return ORDRE_CRENEAUX.indexOf(a.creneau) - ORDRE_CRENEAUX.indexOf(b.creneau);
+  });
+  return cours;
+}
+
+async function poserSeances(classeId, dateDepart) {
+  const cours = await coursAVenir(classeId, dateDepart);
+  if (!cours.length) return { ok: false, message: "Aucun cours à venir pour cette classe." };
+
+  const seancesTriees = [...seances].sort((a, b) => a.numero - b.numero);
+  for (let i = 0; i < seancesTriees.length && i < cours.length; i++) {
+    await sb
+      .from("seances")
+      .update({ classe_id: classeId, annee_id: anneeId, date: cours[i].date })
+      .eq("id", seancesTriees[i].id);
+  }
+
+  const posees = Math.min(seancesTriees.length, cours.length);
+  const reste = seancesTriees.length - posees;
+  let msg = `${posees} séance(s) posée(s).`;
+  if (reste > 0) msg += ` ${reste} sans cours disponible.`;
+  return { ok: true, message: msg };
+}
+
+/* ---------------------------------------------------
+   Charger le planning d'une classe : les séances posées
+   (prévu) + le réel (faites, annulations, évènements)
+   --------------------------------------------------- */
+async function chargerPlanning(classeId) {
+  planningLignes = [];
+
+  // Les séances posées de cette classe, avec le nom de leur séquence
+  const { data: seas } = await sb
+    .from("seances")
+    .select("id, numero, date, notes_seance, sequence_id")
+    .eq("classe_id", classeId)
+    .not("date", "is", null)
+    .order("date");
+
+  // Noms des séquences
+  const seqIds = [...new Set((seas || []).map((s) => s.sequence_id).filter(Boolean))];
+  let nomSeq = new Map();
+  if (seqIds.length) {
+    const { data: seqs } = await sb
+      .from("sequences")
+      .select("id, nom")
+      .in("id", seqIds);
+    nomSeq = new Map((seqs || []).map((s) => [s.id, s.nom]));
+  }
+
+  (seas || []).forEach((s) => {
+    planningLignes.push({
+      type: "seance",
+      date: s.date,
+      libelle: `${nomSeq.get(s.sequence_id) || "Séquence"} — séance ${s.numero}`,
+      fait: !!s.notes_seance, // "réel" = des notes ont été saisies
+    });
+  });
+
+  // Les annulations (réel)
+  const { data: annuls } = await sb
+    .from("annulations")
+    .select("date, motif")
+    .eq("annee_id", anneeId)
+    .eq("classe_id", classeId);
+  (annuls || []).forEach((a) => {
+    planningLignes.push({ type: "annulation", date: a.date, libelle: `Annulé — ${a.motif || ""}`, fait: true });
+  });
+
+  // Les évènements (réel) — non liés à une classe précise, on les montre tous
+  const { data: evs } = await sb
+    .from("evenements")
+    .select("date, type, intitule")
+    .eq("annee_id", anneeId);
+  (evs || []).forEach((e) => {
+    planningLignes.push({ type: "evenement", date: e.date, libelle: `${e.type}${e.intitule ? " : " + e.intitule : ""}`, fait: true });
+  });
+
+  planningLignes.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
+/* ---------------------------------------------------
+   Les classes concernées par une séquence (niveau ou classe)
+   --------------------------------------------------- */
+function classesDeLaSequence(seq) {
+  if (seq.classe_id) return classes.filter((c) => c.id === seq.classe_id);
+  if (seq.niveau) return classes.filter((c) => String(c.nom).startsWith(seq.niveau));
+  return [];
+}
+
+/* ---------------------------------------------------
    Affichage : nom lisible de la cible d'une séquence
    --------------------------------------------------- */
 function cibleLisible(seq) {
@@ -182,6 +325,9 @@ export function renderCalendrier() {
 
   // Si une séquence est ouverte : son détail
   if (sequenceOuverte) return renderDetailSequence();
+
+  // Si la vue planning est demandée
+  if (vuePlanning) return renderPlanning();
 
   // Sinon : la liste des séquences + le formulaire de création
   const liste = sequences.length
@@ -209,6 +355,8 @@ export function renderCalendrier() {
   return `
     <h1>Calendrier</h1>
     <p class="hint">Crée et remplis tes séquences pédagogiques.</p>
+
+    <button class="bouton-doux" id="voirPlanning">Voir le planning d'une classe ›</button>
 
     <div class="carte">
       <h2>Nouvelle séquence</h2>
@@ -256,6 +404,7 @@ function renderDetailSequence() {
       <div class="carte carte-seance">
         <div class="seance-titre">
           Séance ${se.numero}
+          ${se.date ? `<span class="hint">— ${se.date}</span>` : ""}
           <button class="lien-suppr" data-seance="${se.id}">retirer</button>
         </div>
         <label>Objectif<br>
@@ -292,6 +441,19 @@ function renderDetailSequence() {
     ${seancesBloc}
     <button class="bouton-doux" id="ajoutSeance">+ Ajouter une séance</button>
 
+    <div class="carte" style="margin-top:16px;">
+      <h2>Poser sur le calendrier</h2>
+      <p class="hint">La séance 1 démarre au cours choisi, les suivantes s'enchaînent (vacances et annulations sautées).</p>
+      <div class="form-seq">
+        <select id="poseClasse">
+          ${classesDeLaSequence(s).map((c) => `<option value="${c.id}">${c.nom}</option>`).join("")}
+        </select>
+        <label>1re séance à partir du <input type="date" id="poseDate" value="${s.date_debut || ""}"></label>
+        <button class="bouton" id="poserSeances">Poser les séances</button>
+      </div>
+      <div id="msgPose" class="status"></div>
+    </div>
+
     <div style="margin-top:16px;">
       <button class="bouton" id="enregistrerDetail">Enregistrer</button>
       <span id="msgDetail" class="status"></span>
@@ -300,9 +462,93 @@ function renderDetailSequence() {
 }
 
 /* ---------------------------------------------------
+   Affichage de la vue planning (prévu / réel)
+   --------------------------------------------------- */
+function renderPlanning() {
+  const optionsClasses = classes
+    .map(
+      (c) =>
+        `<option value="${c.id}" ${c.id === planningClasse ? "selected" : ""}>${c.nom}</option>`
+    )
+    .join("");
+
+  // Filtrer selon l'interrupteur : prévu = séances ; réel = tout ce qui est "fait"
+  const lignes = planningLignes.filter((l) =>
+    afficherReel ? true : l.type === "seance"
+  );
+
+  const corps = lignes.length
+    ? lignes
+        .map(
+          (l) => `
+        <tr class="ligne-${l.type} ${l.fait ? "est-fait" : ""}">
+          <td>${l.date}</td>
+          <td>${l.libelle}</td>
+          <td>${l.type === "seance" ? (l.fait ? "faite" : "prévue") : l.type}</td>
+        </tr>`
+        )
+        .join("")
+    : `<tr><td colspan="3" class="hint">Rien à afficher. Choisis une classe.</td></tr>`;
+
+  return `
+    <button class="bouton-doux" id="retourListe">‹ Retour aux séquences</button>
+    <h1>Planning</h1>
+
+    <div class="barre-semaine">
+      <label>Classe :
+        <select id="planningClasse">
+          <option value="">— choisir —</option>
+          ${optionsClasses}
+        </select>
+      </label>
+      <label class="ligne-report">
+        <input type="checkbox" id="switchReel" ${afficherReel ? "checked" : ""}>
+        Superposer le réel (fait, annulations, évènements)
+      </label>
+    </div>
+
+    <div class="carte">
+      <table class="grille-edt">
+        <tr><th>Date</th><th>Contenu</th><th>État</th></tr>
+        ${corps}
+      </table>
+    </div>
+  `;
+}
+
+/* ---------------------------------------------------
    Interactions
    --------------------------------------------------- */
 export function bindCalendrier() {
+  // Accès à la vue planning
+  const voirPlanning = document.getElementById("voirPlanning");
+  if (voirPlanning) {
+    voirPlanning.addEventListener("click", () => {
+      vuePlanning = true;
+      rafraichir();
+    });
+  }
+
+  // Vue planning : choix de classe
+  const planClasse = document.getElementById("planningClasse");
+  if (planClasse) {
+    planClasse.addEventListener("change", async (e) => {
+      planningClasse = e.target.value || null;
+      if (planningClasse) await chargerPlanning(planningClasse);
+      else planningLignes = [];
+      rafraichir();
+    });
+  }
+
+  // Vue planning : interrupteur prévu/réel
+  const switchReel = document.getElementById("switchReel");
+  if (switchReel) {
+    switchReel.addEventListener("change", (e) => {
+      afficherReel = e.target.checked;
+      rafraichir();
+    });
+  }
+
   // --- Écran liste + création ---
   const creer = document.getElementById("creerSeq");
   if (creer) {
@@ -339,6 +585,7 @@ export function bindCalendrier() {
   if (retour) {
     retour.addEventListener("click", () => {
       sequenceOuverte = null;
+      vuePlanning = false;
       rafraichir();
     });
   }
@@ -391,6 +638,25 @@ export function bindCalendrier() {
       try {
         await enregistrerDetail(champs);
         msg.textContent = "✅ Enregistré.";
+      } catch (e) {
+        msg.textContent = "❌ " + e.message;
+      }
+    });
+  }
+
+  // Poser les séances sur le calendrier
+  const poser = document.getElementById("poserSeances");
+  if (poser) {
+    poser.addEventListener("click", async () => {
+      const msg = document.getElementById("msgPose");
+      const classeId = document.getElementById("poseClasse").value;
+      const dateDepart = document.getElementById("poseDate").value;
+      if (!classeId || !dateDepart) { msg.textContent = "❌ Choisis une classe et une date."; return; }
+      msg.textContent = "⏳ Pose en cours…";
+      try {
+        const res = await poserSeances(classeId, dateDepart);
+        msg.textContent = (res.ok ? "✅ " : "❌ ") + res.message;
+        await ouvrirSequence(sequenceOuverte.id);
       } catch (e) {
         msg.textContent = "❌ " + e.message;
       }
