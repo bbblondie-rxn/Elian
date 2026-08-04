@@ -4,7 +4,7 @@
    Disposition fixe fidèle au PDF, ajustable plus tard.
    =================================================== */
 
-import { sb } from "../supabase.js";
+import { sb } from "./supabase.js";
 
 // Ton tableau de codes de départ (rempli auto si la table est vide).
 // "R" apparaissait 2 fois : la remarque négative devient "Rq".
