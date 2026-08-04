@@ -3,7 +3,7 @@
    Lit un fichier CSV et crée les classes + élèves.
    =================================================== */
 
-import { sb } from "../supabase.js";
+import { sb } from "./supabase.js";
 
 /* ---------------------------------------------------
    Outils pour lire le CSV
