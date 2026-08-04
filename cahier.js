@@ -4,7 +4,7 @@
    Tout sur Supabase (les images locales viendront après).
    =================================================== */
 
-import { sb } from "../supabase.js";
+import { sb } from "./supabase.js";
 
 // Onglets par défaut (créés au premier lancement s'ils manquent)
 const ONGLETS_DEPART = [
