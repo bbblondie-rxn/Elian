@@ -417,8 +417,21 @@ body {
   border-radius: 12px;
   padding: 20px;
   width: min(420px, 90vw);
+  max-height: 85vh;              /* ne dépasse jamais l'écran */
+  overflow-y: auto;             /* défile si trop long */
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
 }
+.modale-large { width: min(600px, 92vw); }
+/* Modale codes : le tableau défile, le bouton reste visible en bas */
+.modale-large table { display: block; max-height: 60vh; overflow-y: auto; }
+.modale-menu { width: min(340px, 88vw); text-align: center; }
+.menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+.menu-actions .bouton, .menu-actions .bouton-doux { width: 100%; }
 .ligne-critere {
   display: flex;
   align-items: center;
@@ -513,4 +526,3 @@ mark { background: #fff2a8; }
 }
 .objet-tableau .objet-sous { color: #cfd4dc; }
 .objet-bureau { cursor: pointer; }
-.modale-large { width: min(600px, 92vw); }
