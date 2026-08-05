@@ -51,26 +51,42 @@ let codes = [];           // le tableau de codes (depuis Supabase)
    portrait. On ajustera finement plus tard.
    Les 9 îlots : 7 de 4 places, 2 de 2 places.
    --------------------------------------------------- */
+/* Disposition fidèle à la salle réelle.
+   y = 0 en HAUT (fond de classe), y élevé en BAS (front, tableau).
+   3 colonnes : gauche ~6%, centre ~37%, droite ~68%.
+   Du bas vers le haut :
+     Rang 1 (bas, front) : poste à colle · tableau · bureau
+     Rang 2 : îlot 4 · îlot 2 · îlot 4
+     Rang 3 : îlot 4 · îlot 4 · îlot 4
+     Rang 4 : îlot 4 · îlot 4 · îlot 2
+     Rang 5 (haut, fond) : ballon+coussin · grise · blanche
+*/
 const ILOTS = [
-  { id: "A", places: 4, x: 8,  y: 22 },
-  { id: "B", places: 4, x: 38, y: 22 },
-  { id: "C", places: 4, x: 68, y: 22 },
-  { id: "D", places: 4, x: 8,  y: 42 },
-  { id: "E", places: 4, x: 38, y: 42 },
-  { id: "F", places: 4, x: 68, y: 42 },
-  { id: "G", places: 4, x: 8,  y: 62 },
-  { id: "H", places: 2, x: 38, y: 62 },
-  { id: "I", places: 2, x: 68, y: 62 },
+  // Rang 4 (près du fond) — y le plus petit
+  { id: "A", places: 4, x: 6,  y: 20 },
+  { id: "B", places: 4, x: 37, y: 20 },
+  { id: "C", places: 2, x: 68, y: 20 },
+  // Rang 3 (milieu)
+  { id: "D", places: 4, x: 6,  y: 40 },
+  { id: "E", places: 4, x: 37, y: 40 },
+  { id: "F", places: 4, x: 68, y: 40 },
+  // Rang 2 (près du front)
+  { id: "G", places: 4, x: 6,  y: 60 },
+  { id: "H", places: 2, x: 37, y: 60 },
+  { id: "I", places: 4, x: 68, y: 60 },
 ];
 
-// Les objets de la salle (tables tournantes + repères)
+// Les objets de la salle.
 const OBJETS = [
-  { id: "grise",   nom: "Grise",   x: 38, y: 6 },
-  { id: "blanche", nom: "Blanche", x: 68, y: 6 },
-  { id: "ballon",  nom: "Ballon",  x: 8,  y: 6 },
-  { id: "coussin", nom: "Coussin", x: 8,  y: 84 },
-  { id: "colle",   nom: "Poste à colle", x: 38, y: 84 },
-  { id: "bureau",  nom: "Bureau",  x: 70, y: 84 },
+  // Rang 5 (tout en haut, le fond)
+  { id: "ballon",  nom: "Ballon",  x: 6,  y: 3 },
+  { id: "coussin", nom: "Coussin", x: 6,  y: 11 },
+  { id: "grise",   nom: "Grise",   x: 37, y: 4 },
+  { id: "blanche", nom: "Blanche", x: 68, y: 4 },
+  // Rang 1 (tout en bas, le front de classe)
+  { id: "colle",   nom: "Poste à colle", x: 6,  y: 84 },
+  { id: "tableau", nom: "TABLEAU",       x: 37, y: 84 },
+  { id: "bureau",  nom: "Bureau",        x: 68, y: 84 },
 ];
 
 /* ---------------------------------------------------
