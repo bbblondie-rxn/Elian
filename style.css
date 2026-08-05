@@ -28,27 +28,30 @@ body {
   color: var(--texte);
   line-height: 1.5;
   display: flex;
+  flex-direction: column;      /* menu en haut, contenu dessous */
   min-height: 100vh;
 }
 
-/* ---------- Barre de navigation ---------- */
+/* ---------- Barre de navigation (horizontale, en haut) ---------- */
 #menu {
-  width: 210px;
-  background: var(--carte);
-  border-right: 1px solid var(--bordure);
-  padding: 20px 12px;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
-  flex-shrink: 0;
+  background: var(--carte);
+  border-bottom: 1px solid var(--bordure);
+  padding: 8px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
 .menu-titre {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--accent);
   letter-spacing: 1px;
-  padding: 8px 12px 20px;
+  padding: 4px 14px 4px 4px;
 }
 
 .menu-item {
@@ -140,24 +143,6 @@ body {
 }
 
 /* ---------- Sur petit écran : menu en haut ---------- */
-@media (max-width: 700px) {
-  body {
-    flex-direction: column;
-  }
-  #menu {
-    width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    border-right: none;
-    border-bottom: 1px solid var(--bordure);
-    padding: 12px;
-  }
-  .menu-titre {
-    width: 100%;
-    padding: 4px 8px 12px;
-  }
-}
-
 /* ---------- Emploi du temps ---------- */
 .palette {
   display: flex;
@@ -323,9 +308,10 @@ body {
 .salle {
   position: relative;
   width: 100%;
-  max-width: 700px;
+  max-width: 900px;
   margin: 0 auto;
-  aspect-ratio: 3 / 4;              /* portrait */
+  aspect-ratio: 5 / 7;              /* portrait, plus grand */
+  min-height: 70vh;
   background: var(--carte);
   border: 1px solid var(--bordure);
   border-radius: 12px;
@@ -336,13 +322,17 @@ body {
   position: absolute;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  width: 24%;
-  padding: 3px;
+  gap: 4px;
+  width: 26%;
+  padding: 4px;
   background: var(--accent-clair);
   border-radius: 8px;
 }
-.ilot-2 { width: 24%; }
+.ilot-2 {
+  grid-template-columns: 1fr 1fr;  /* 2 places côte à côte */
+  width: 26%;
+}
+.ilot-2 .siege { grid-column: auto; }
 
 .siege {
   position: relative;
