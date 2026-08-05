@@ -50,6 +50,9 @@ let rouleauObjets = { ballon: [], coussin: [], grise: [], blanche: [], colle: []
 // Modales ouvertes
 let modaleVocab = false;
 let modaleCodes = false;
+let menuEleve = null;       // élève dont le menu clic-long est ouvert
+let noteEleve = null;       // élève dont la modale note libre est ouverte
+let deplaceEleve = null;    // élève dont on choisit l'objet de déplacement
 
 /* ---------------------------------------------------
    Disposition fixe de la salle (fidèle au PDF)
@@ -210,11 +213,10 @@ function afficherIlot(ilot) {
     const eleve = placements.get(`${ilot.id}:${p}`);
     if (eleve) {
       sieges.push(`
-        <div class="siege" data-eleve="${eleve.id}" draggable="true">
+        <div class="siege" data-eleve="${eleve.id}">
           <div class="siege-nom">${eleve.prenom}</div>
           <input type="text" class="siege-saisie" data-eleve="${eleve.id}"
                  aria-label="Écrire un code sur ${eleve.prenom}" />
-          <canvas class="siege-dessin" data-eleve="${eleve.id}"></canvas>
         </div>
       `);
     } else {
@@ -455,6 +457,74 @@ function afficherModaleCodes() {
 }
 
 /* ---------------------------------------------------
+   Menu clic-long : Déplacer / Évaluer / Note libre
+   --------------------------------------------------- */
+function afficherMenuEleve() {
+  if (!menuEleve) return "";
+  const eleve = eleves.find((e) => e.id === menuEleve);
+  if (!eleve) return "";
+  return `
+    <div class="modale-fond" id="menuFond">
+      <div class="modale modale-menu">
+        <strong>${eleve.prenom} ${eleve.nom}</strong>
+        <div class="menu-actions">
+          <button class="bouton" data-action="deplacer">Déplacer</button>
+          <button class="bouton" data-action="evaluer">Évaluer</button>
+          <button class="bouton" data-action="note">Note libre</button>
+          <button class="bouton-doux" data-action="fermer">Annuler</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* Choix de l'objet vers lequel déplacer l'élève */
+function afficherChoixObjet() {
+  if (!deplaceEleve) return "";
+  const eleve = eleves.find((e) => e.id === deplaceEleve);
+  const objets = [
+    { id: "ballon", nom: "Ballon" },
+    { id: "coussin", nom: "Coussin" },
+    { id: "colle", nom: "Poste à colle" },
+    { id: "grise", nom: "Table grise" },
+    { id: "blanche", nom: "Table blanche" },
+  ];
+  const boutons = objets
+    .map((o) => `<button class="bouton" data-objet-cible="${o.id}">${o.nom}</button>`)
+    .join("");
+  return `
+    <div class="modale-fond" id="objetFond">
+      <div class="modale modale-menu">
+        <strong>Déplacer ${eleve ? eleve.prenom : ""} vers…</strong>
+        <div class="menu-actions">
+          ${boutons}
+          <button class="bouton-doux" data-objet-cible="annuler">Annuler</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* Modale note libre */
+function afficherModaleNote() {
+  if (!noteEleve) return "";
+  const eleve = eleves.find((e) => e.id === noteEleve);
+  return `
+    <div class="modale-fond" id="noteFond">
+      <div class="modale">
+        <strong>Note sur ${eleve ? eleve.prenom : ""}</strong>
+        <p class="hint">Information libre (remonte dans le Suivi).</p>
+        <textarea id="noteTexte" rows="4" style="width:100%"></textarea>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="bouton" id="noteValider">Enregistrer</button>
+          <button class="bouton-doux" id="noteFermer">Annuler</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------------------------------------------------
    Affichage de la page
    --------------------------------------------------- */
 export function renderPlan() {
@@ -504,6 +574,9 @@ export function renderPlan() {
     ${modaleEval()}
     ${afficherModaleVocab()}
     ${afficherModaleCodes()}
+    ${afficherMenuEleve()}
+    ${afficherChoixObjet()}
+    ${afficherModaleNote()}
   `;
 }
 
@@ -547,38 +620,23 @@ export function bindPlan() {
     champ.addEventListener("blur", traiter);
   });
 
-  // Détection d'entourage sur chaque siège (canvas transparent)
-  document.querySelectorAll(".siege-dessin[data-eleve]").forEach((canvas) => {
-    let points = [];
-    let dessine = false;
+  // Clic long sur un élève → menu Déplacer / Évaluer / Note libre
+  document.querySelectorAll(".siege[data-eleve]").forEach((siege) => {
+    let timer = null;
 
-    const pos = (e) => {
-      const r = canvas.getBoundingClientRect();
-      const p = e.touches ? e.touches[0] : e;
-      return { x: p.clientX - r.left, y: p.clientY - r.top };
-    };
-
-    const debut = (e) => { dessine = true; points = [pos(e)]; };
-    const bouge = (e) => { if (dessine) points.push(pos(e)); };
-    const fin = () => {
-      if (!dessine) return;
-      dessine = false;
-      if (estBoucle(points)) {
-        // Entourage → ouvrir l'évaluation
-        evalEleve = eleves.find((el) => el.id === canvas.dataset.eleve);
+    const demarrer = (e) => {
+      timer = setTimeout(() => {
+        timer = null;
+        menuEleve = siege.dataset.eleve;   // ouvre le menu pour cet élève
         rafraichir();
-      } else {
-        // Pas une boucle → c'était une tentative d'écriture :
-        // on donne le focus au champ pour écrire sur le nom.
-        const champ = canvas.parentElement.querySelector(".siege-saisie");
-        if (champ) champ.focus();
-      }
-      points = [];
+      }, 500); // 0,5 s = clic long
     };
+    const annuler = () => { if (timer) { clearTimeout(timer); timer = null; } };
 
-    canvas.addEventListener("pointerdown", debut);
-    canvas.addEventListener("pointermove", bouge);
-    canvas.addEventListener("pointerup", fin);
+    siege.addEventListener("pointerdown", demarrer);
+    siege.addEventListener("pointerup", annuler);
+    siege.addEventListener("pointerleave", annuler);
+    siege.addEventListener("pointermove", annuler);
   });
 
   // Modale d'évaluation : fermer / enregistrer
@@ -603,23 +661,51 @@ export function bindPlan() {
     });
   }
 
-  // --- Glisser-déposer : élève vers objet tournant ---
-  let eleveGlisse = null;
-  document.querySelectorAll(".siege[data-eleve]").forEach((siege) => {
-    siege.addEventListener("dragstart", () => {
-      eleveGlisse = siege.dataset.eleve;
+  // --- Menu clic-long : les 3 actions ---
+  const menuFond = document.getElementById("menuFond");
+  if (menuFond) {
+    menuFond.querySelectorAll("[data-action]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const action = btn.dataset.action;
+        const id = menuEleve;
+        menuEleve = null;
+        if (action === "deplacer") deplaceEleve = id;
+        else if (action === "evaluer") evalEleve = eleves.find((e) => e.id === id);
+        else if (action === "note") noteEleve = id;
+        rafraichir();
+      });
     });
-  });
-  document.querySelectorAll(".objet-depot[data-objet]").forEach((objet) => {
-    objet.addEventListener("dragover", (e) => e.preventDefault());
-    objet.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      if (!eleveGlisse) return;
-      await deposerSurObjet(eleveGlisse, objet.dataset.objet);
-      eleveGlisse = null;
+    menuFond.addEventListener("click", (e) => {
+      if (e.target === menuFond) { menuEleve = null; rafraichir(); }
+    });
+  }
+
+  // --- Choix de l'objet pour déplacer ---
+  const objetFond = document.getElementById("objetFond");
+  if (objetFond) {
+    objetFond.querySelectorAll("[data-objet-cible]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const cible = btn.dataset.objetCible;
+        const id = deplaceEleve;
+        deplaceEleve = null;
+        if (cible !== "annuler") await deposerSurObjet(id, cible);
+        rafraichir();
+      });
+    });
+  }
+
+  // --- Modale note libre ---
+  const noteValider = document.getElementById("noteValider");
+  if (noteValider) {
+    noteValider.addEventListener("click", async () => {
+      const eleve = eleves.find((e) => e.id === noteEleve);
+      await poserNote(eleve, document.getElementById("noteTexte").value);
+      noteEleve = null;
       rafraichir();
     });
-  });
+  }
+  const noteFermer = document.getElementById("noteFermer");
+  if (noteFermer) noteFermer.addEventListener("click", () => { noteEleve = null; rafraichir(); });
 
   // --- Tableau → modale vocabulaire ---
   const tableau = document.querySelector("[data-tableau]");
