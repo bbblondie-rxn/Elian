@@ -45,6 +45,12 @@ let eleves = [];          // élèves de la classe
 let placements = new Map(); // siège -> élève (siège = "ilot:position")
 let codes = [];           // le tableau de codes (depuis Supabase)
 
+// Roulement affiché sur les objets tournants : objet -> [prénoms]
+let rouleauObjets = { ballon: [], coussin: [], grise: [], blanche: [], colle: [] };
+// Modales ouvertes
+let modaleVocab = false;
+let modaleCodes = false;
+
 /* ---------------------------------------------------
    Disposition fixe de la salle (fidèle au PDF)
    Coordonnées en % de la largeur/hauteur d'une zone
@@ -204,10 +210,10 @@ function afficherIlot(ilot) {
     const eleve = placements.get(`${ilot.id}:${p}`);
     if (eleve) {
       sieges.push(`
-        <div class="siege" data-eleve="${eleve.id}">
+        <div class="siege" data-eleve="${eleve.id}" draggable="true">
           <div class="siege-nom">${eleve.prenom}</div>
           <input type="text" class="siege-saisie" data-eleve="${eleve.id}"
-                 placeholder="code ou ↳ note" />
+                 aria-label="Écrire un code sur ${eleve.prenom}" />
           <canvas class="siege-dessin" data-eleve="${eleve.id}"></canvas>
         </div>
       `);
@@ -336,9 +342,114 @@ async function traiterSaisie(eleve, texte) {
    Affichage d'un objet de la salle
    --------------------------------------------------- */
 function afficherObjet(obj) {
+  // Le tableau ouvre le vocabulaire (pas une zone de dépôt)
+  if (obj.id === "tableau") {
+    return `
+      <div class="objet-salle objet-tableau" data-tableau="1"
+           style="left:${obj.x}%; top:${obj.y}%;">
+        ${obj.nom}
+        <div class="objet-sous">vocabulaire</div>
+      </div>
+    `;
+  }
+  // Le bureau : rappel des codes
+  if (obj.id === "bureau") {
+    return `
+      <div class="objet-salle objet-bureau" data-codes="1"
+           style="left:${obj.x}%; top:${obj.y}%;">
+        ${obj.nom}
+        <div class="objet-sous">codes</div>
+      </div>
+    `;
+  }
+
+  // Objets tournants : zones de dépôt, avec les derniers élèves passés
+  const estTournant = ["ballon", "coussin", "grise", "blanche", "colle"].includes(obj.id);
+  const roulement = (rouleauObjets[obj.id] || [])
+    .slice(-6)
+    .map((n) => `<span class="roule-nom">${n}</span>`)
+    .join("");
+
   return `
-    <div class="objet-salle objet-${obj.id}" style="left:${obj.x}%; top:${obj.y}%;">
-      ${obj.nom}
+    <div class="objet-salle ${estTournant ? "objet-depot" : ""} objet-${obj.id}"
+         data-objet="${obj.id}" style="left:${obj.x}%; top:${obj.y}%;">
+      <div class="objet-titre">${obj.nom}</div>
+      ${estTournant ? `<div class="objet-roulement">${roulement}</div>` : ""}
+    </div>
+  `;
+}
+
+/* ---------------------------------------------------
+   Déposer un élève sur un objet tournant
+   → enregistre une visite + met à jour le roulement affiché
+   --------------------------------------------------- */
+async function deposerSurObjet(eleveId, objetId) {
+  const eleve = eleves.find((e) => e.id === eleveId);
+  if (!eleve) return;
+
+  // Mettre à jour l'affichage du roulement (file des derniers passés)
+  if (rouleauObjets[objetId]) {
+    rouleauObjets[objetId].push(eleve.prenom);
+    if (rouleauObjets[objetId].length > 8) rouleauObjets[objetId].shift();
+  }
+
+  // Enregistrer la visite (si la table objets_tournants est remplie plus tard,
+  // on reliera l'id ; pour l'instant on note la visite avec le type d'objet).
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  try {
+    await sb.from("visites").insert([{
+      eleve_id: eleveId,
+      date: aujourdhui,
+    }]);
+  } catch (e) { /* la visite est surtout visuelle pour l'instant */ }
+}
+
+/* ---------------------------------------------------
+   Modale vocabulaire (ouverte par le tableau)
+   --------------------------------------------------- */
+function afficherModaleVocab() {
+  if (!modaleVocab) return "";
+  return `
+    <div class="modale-fond" id="vocabFond">
+      <div class="modale">
+        <strong>Vocabulaire du cours</strong>
+        <p class="hint">Les mots vus aujourd'hui (un par ligne).</p>
+        <textarea id="vocabTexte" rows="6" style="width:100%"></textarea>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="bouton" id="vocabValider">Enregistrer</button>
+          <button class="bouton-doux" id="vocabFermer">Fermer</button>
+        </div>
+        <div id="vocabMsg" class="status"></div>
+      </div>
+    </div>
+  `;
+}
+
+async function enregistrerVocab(texte) {
+  const mots = texte.split("\n").map((m) => m.trim()).filter(Boolean);
+  if (!mots.length || !classeChoisie) return;
+  const lignes = mots.map((mot) => ({ classe_id: classeChoisie.id, mot }));
+  await sb.from("vocabulaire").insert(lignes);
+}
+
+/* ---------------------------------------------------
+   Modale rappel des codes (ouverte par le bureau)
+   --------------------------------------------------- */
+function afficherModaleCodes() {
+  if (!modaleCodes) return "";
+  const lignes = codes
+    .map((c) => `<tr><td><strong>${c.code}</strong></td><td>${c.libelle || ""}</td><td>${c.valeur > 0 ? "+" : ""}${c.valeur}</td></tr>`)
+    .join("");
+  return `
+    <div class="modale-fond" id="codesFond">
+      <div class="modale modale-large">
+        <strong>Rappel des codes</strong>
+        <table class="grille-edt" style="margin-top:10px;">
+          <tr><th>Code</th><th>Signification</th><th>Points</th></tr>
+          ${lignes}
+        </table>
+        <button class="bouton-doux" id="codesFermer" style="margin-top:10px;">Fermer</button>
+      </div>
     </div>
   `;
 }
@@ -391,6 +502,8 @@ export function renderPlan() {
     ${entete}
     ${salle}
     ${modaleEval()}
+    ${afficherModaleVocab()}
+    ${afficherModaleCodes()}
   `;
 }
 
@@ -451,9 +564,14 @@ export function bindPlan() {
       if (!dessine) return;
       dessine = false;
       if (estBoucle(points)) {
-        // Entourage détecté → ouvrir l'évaluation
+        // Entourage → ouvrir l'évaluation
         evalEleve = eleves.find((el) => el.id === canvas.dataset.eleve);
         rafraichir();
+      } else {
+        // Pas une boucle → c'était une tentative d'écriture :
+        // on donne le focus au champ pour écrire sur le nom.
+        const champ = canvas.parentElement.querySelector(".siege-saisie");
+        if (champ) champ.focus();
       }
       points = [];
     };
@@ -484,6 +602,42 @@ export function bindPlan() {
       else document.getElementById("evalMessage").textContent = "❌ " + res.message;
     });
   }
+
+  // --- Glisser-déposer : élève vers objet tournant ---
+  let eleveGlisse = null;
+  document.querySelectorAll(".siege[data-eleve]").forEach((siege) => {
+    siege.addEventListener("dragstart", () => {
+      eleveGlisse = siege.dataset.eleve;
+    });
+  });
+  document.querySelectorAll(".objet-depot[data-objet]").forEach((objet) => {
+    objet.addEventListener("dragover", (e) => e.preventDefault());
+    objet.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      if (!eleveGlisse) return;
+      await deposerSurObjet(eleveGlisse, objet.dataset.objet);
+      eleveGlisse = null;
+      rafraichir();
+    });
+  });
+
+  // --- Tableau → modale vocabulaire ---
+  const tableau = document.querySelector("[data-tableau]");
+  if (tableau) tableau.addEventListener("click", () => { modaleVocab = true; rafraichir(); });
+
+  const vocabFermer = document.getElementById("vocabFermer");
+  if (vocabFermer) vocabFermer.addEventListener("click", () => { modaleVocab = false; rafraichir(); });
+  const vocabValider = document.getElementById("vocabValider");
+  if (vocabValider) vocabValider.addEventListener("click", async () => {
+    await enregistrerVocab(document.getElementById("vocabTexte").value);
+    modaleVocab = false; rafraichir();
+  });
+
+  // --- Bureau → modale rappel des codes ---
+  const bureau = document.querySelector("[data-codes]");
+  if (bureau) bureau.addEventListener("click", () => { modaleCodes = true; rafraichir(); });
+  const codesFermer = document.getElementById("codesFermer");
+  if (codesFermer) codesFermer.addEventListener("click", () => { modaleCodes = false; rafraichir(); });
 }
 
 /* ---------------------------------------------------
