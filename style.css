@@ -526,3 +526,15 @@ mark { background: #fff2a8; }
 }
 .objet-tableau .objet-sous { color: #cfd4dc; }
 .objet-bureau { cursor: pointer; }
+
+/* Couleurs d'absence sur les sièges du Plan */
+.siege-absent-bleu {
+  background: #d6e4f7;
+  border-color: #6a9bd8;
+}
+.siege-absent-bleu .siege-nom { color: #2b5b9e; }
+.siege-absent-rouge {
+  background: #f7d6d6;
+  border-color: #d86a6a;
+}
+.siege-absent-rouge .siege-nom { color: #9e2b2b; }
