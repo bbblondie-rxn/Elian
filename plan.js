@@ -24,10 +24,7 @@ const CODES_DEPART = [
   { code: "+FR", libelle: "refus de produire sur la séquence", valeur: -0.5 },
   { code: "Q", libelle: "pose des questions pour réaliser son travail", valeur: 0.5 },
   { code: "W", libelle: "chahute, empêche les autres de travailler", valeur: -1 },
-  { code: "T", libelle: "utilise une table haute", valeur: 0 },
   { code: "F", libelle: "utilise un fidget", valeur: 0 },
-  { code: "B", libelle: "utilise un ballon", valeur: 0 },
-  { code: "BC", libelle: "utilise un coussin", valeur: 0 },
   { code: "Cq", libelle: "utilise un casque anti-bruit", valeur: 0 },
   { code: "É", libelle: "utilise des écouteurs", valeur: 0 },
   { code: "A", libelle: "absent", valeur: 0 },
@@ -53,6 +50,7 @@ let modaleCodes = false;
 let menuEleve = null;       // élève dont le menu clic-long est ouvert
 let noteEleve = null;       // élève dont la modale note libre est ouverte
 let deplaceEleve = null;    // élève dont on choisit l'objet de déplacement
+let absenceCouleur = {};    // eleve_id -> "bleu" | "rouge" | null
 
 /* ---------------------------------------------------
    Disposition fixe de la salle (fidèle au PDF)
@@ -139,7 +137,8 @@ async function chargerCodes() {
    Poser un code sur un élève (vérifie qu'il existe)
    --------------------------------------------------- */
 async function poserCode(eleve, texteSaisi) {
-  const cherche = texteSaisi.trim();
+  // Le stylet transforme souvent "-" en "_" : on rétablit.
+  const cherche = texteSaisi.trim().replace(/_/g, "-");
   // Comparaison souple (sans tenir compte de la casse/accent simple)
   const trouve = codes.find(
     (c) => c.code.toLowerCase() === cherche.toLowerCase()
@@ -188,13 +187,15 @@ async function chargerEleves(classeId) {
     .order("nom");
   eleves = (data || []).filter((e) => e.statut !== "archivé");
 
+  await chargerAbsencesRecentes();
   await chargerSequenceEnCours(classeId);
 
-  // Placement : pour l'instant on remplit les sièges dans l'ordre
-  // (le vrai placement viendra du Suivi / glisser-déposer).
+  // Placement : on remplit en partant du BAS (front de classe).
+  // Les îlots du bas ont un "y" plus grand → on trie par y décroissant.
   placements = new Map();
+  const ilotsDuBas = [...ILOTS].sort((a, b) => b.y - a.y);
   let i = 0;
-  for (const ilot of ILOTS) {
+  for (const ilot of ilotsDuBas) {
     for (let p = 0; p < ilot.places; p++) {
       if (i < eleves.length) {
         placements.set(`${ilot.id}:${p}`, eleves[i]);
@@ -205,6 +206,54 @@ async function chargerEleves(classeId) {
 }
 
 /* ---------------------------------------------------
+   Couleurs d'absence :
+   bleu = absent la dernière séance,
+   rouge = absent les 2 dernières (ou plus) d'affilée.
+   Basé sur le code A dans les annotations.
+   --------------------------------------------------- */
+async function chargerAbsencesRecentes() {
+  absenceCouleur = {};
+  if (!eleves.length) return;
+
+  const codeA = codes.find((c) => c.code === "A");
+  if (!codeA) return;
+
+  const ids = eleves.map((e) => e.id);
+
+  // Les absences (code A) de ces élèves
+  const { data: absA } = await sb
+    .from("annotations")
+    .select("eleve_id, date")
+    .eq("code_id", codeA.id)
+    .in("eleve_id", ids);
+
+  // Les dates de séances distinctes (toutes annotations), récentes d'abord
+  const { data: toutes } = await sb
+    .from("annotations")
+    .select("date")
+    .in("eleve_id", ids)
+    .order("date", { ascending: false });
+  const datesSeances = [...new Set((toutes || []).map((r) => r.date))];
+
+  const derniere = datesSeances[0];
+  const avantDerniere = datesSeances[1];
+
+  // Pour chaque élève : absent la dernière ? l'avant-dernière ?
+  const absParEleve = {};
+  (absA || []).forEach((a) => {
+    (absParEleve[a.eleve_id] = absParEleve[a.eleve_id] || new Set()).add(a.date);
+  });
+
+  eleves.forEach((e) => {
+    const set = absParEleve[e.id] || new Set();
+    const absDerniere = derniere && set.has(derniere);
+    const absAvant = avantDerniere && set.has(avantDerniere);
+    if (absDerniere && absAvant) absenceCouleur[e.id] = "rouge";
+    else if (absDerniere) absenceCouleur[e.id] = "bleu";
+  });
+}
+
+/* ---------------------------------------------------
    Affichage d'un îlot (avec ses sièges)
    --------------------------------------------------- */
 function afficherIlot(ilot) {
@@ -212,8 +261,10 @@ function afficherIlot(ilot) {
   for (let p = 0; p < ilot.places; p++) {
     const eleve = placements.get(`${ilot.id}:${p}`);
     if (eleve) {
+      const couleur = absenceCouleur[eleve.id]; // "bleu", "rouge" ou undefined
+      const classeAbs = couleur ? ` siege-absent-${couleur}` : "";
       sieges.push(`
-        <div class="siege" data-eleve="${eleve.id}">
+        <div class="siege${classeAbs}" data-eleve="${eleve.id}">
           <div class="siege-nom">${eleve.prenom}</div>
           <input type="text" class="siege-saisie" data-eleve="${eleve.id}"
                  aria-label="Écrire un code sur ${eleve.prenom}" />
