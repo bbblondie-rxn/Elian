@@ -310,8 +310,8 @@ body {
   width: 100%;
   max-width: 900px;
   margin: 0 auto;
-  aspect-ratio: 5 / 7;              /* portrait, plus grand */
-  min-height: 70vh;
+  aspect-ratio: 4 / 6;              /* portrait iPad */
+  min-height: 78vh;
   background: var(--carte);
   border: 1px solid var(--bordure);
   border-radius: 12px;
@@ -323,14 +323,14 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
-  width: 26%;
+  width: 29%;
   padding: 4px;
   background: var(--accent-clair);
   border-radius: 8px;
 }
 .ilot-2 {
-  grid-template-columns: 1fr 1fr;  /* 2 places côte à côte */
-  width: 26%;
+  grid-template-columns: 1fr 1fr;
+  width: 29%;
 }
 .ilot-2 .siege { grid-column: auto; }
 
@@ -339,7 +339,7 @@ body {
   background: #fff;
   border: 1px solid var(--bordure);
   border-radius: 6px;
-  min-height: 56px;
+  min-height: 72px;
   padding: 4px;
   font-size: 14px;
   text-align: center;
