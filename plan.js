@@ -69,14 +69,14 @@ let absenceCouleur = {};    // eleve_id -> "bleu" | "rouge" | null
      Rang 5 (haut, fond) : ballon+coussin · grise · blanche
 */
 const ILOTS = [
-  // Rang 4 (près du fond) — y le plus petit
-  { id: "A", places: 4, x: 3,  y: 18 },
-  { id: "B", places: 4, x: 36, y: 18 },
-  { id: "C", places: 2, x: 69, y: 18 },
+  // Rang 4 (près du fond)
+  { id: "A", places: 4, x: 3,  y: 22 },
+  { id: "B", places: 4, x: 36, y: 22 },
+  { id: "C", places: 2, x: 69, y: 22 },
   // Rang 3 (milieu)
-  { id: "D", places: 4, x: 3,  y: 40 },
-  { id: "E", places: 4, x: 36, y: 40 },
-  { id: "F", places: 4, x: 69, y: 40 },
+  { id: "D", places: 4, x: 3,  y: 42 },
+  { id: "E", places: 4, x: 36, y: 42 },
+  { id: "F", places: 4, x: 69, y: 42 },
   // Rang 2 (près du front)
   { id: "G", places: 4, x: 3,  y: 62 },
   { id: "H", places: 2, x: 36, y: 62 },
@@ -86,14 +86,14 @@ const ILOTS = [
 // Les objets de la salle.
 const OBJETS = [
   // Rang 5 (tout en haut, le fond)
-  { id: "ballon",  nom: "Ballon",  x: 6,  y: 3 },
-  { id: "coussin", nom: "Coussin", x: 6,  y: 11 },
-  { id: "grise",   nom: "Grise",   x: 37, y: 4 },
-  { id: "blanche", nom: "Blanche", x: 68, y: 4 },
+  { id: "ballon",  nom: "Ballon",  x: 3,  y: 2 },
+  { id: "coussin", nom: "Coussin", x: 3,  y: 10 },
+  { id: "grise",   nom: "Grise",   x: 36, y: 3 },
+  { id: "blanche", nom: "Blanche", x: 69, y: 3 },
   // Rang 1 (tout en bas, le front de classe)
-  { id: "colle",   nom: "Poste à colle", x: 6,  y: 84 },
-  { id: "tableau", nom: "TABLEAU",       x: 37, y: 84 },
-  { id: "bureau",  nom: "Bureau",        x: 68, y: 84 },
+  { id: "colle",   nom: "Poste à colle", x: 3,  y: 86 },
+  { id: "tableau", nom: "TABLEAU",       x: 36, y: 86 },
+  { id: "bureau",  nom: "Bureau",        x: 69, y: 86 },
 ];
 
 /* ---------------------------------------------------
