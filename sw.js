@@ -7,8 +7,7 @@
    version en mémoire.
    =================================================== */
 
-const VERSION = "elian-v15
-   ";
+const VERSION = "elian-v16";
 
 const FICHIERS = [
   "index.html",
