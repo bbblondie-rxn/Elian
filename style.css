@@ -308,10 +308,10 @@ body {
 .salle {
   position: relative;
   width: 100%;
-  max-width: 900px;
+  max-width: 700px;
   margin: 0 auto;
-  aspect-ratio: 4 / 6;              /* portrait iPad */
-  min-height: 78vh;
+  height: calc(100vh - 170px);   /* tient sous le menu + l'en-tête, sans ascenseur */
+  min-height: 420px;
   background: var(--carte);
   border: 1px solid var(--bordure);
   border-radius: 12px;
