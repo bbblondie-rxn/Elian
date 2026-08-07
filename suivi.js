@@ -58,6 +58,52 @@ async function chargerEleves(classeId) {
     .order("nom");
   // On ignore les élèves archivés
   eleves = (data || []).filter((e) => e.statut !== "archivé");
+
+  await chargerStats();
+}
+
+/* ---------------------------------------------------
+   Calculer, pour chaque élève :
+   - la note d'engagement du mois (10 + somme des points du mois)
+   - le nombre d'absences (code A) sur l'année
+   --------------------------------------------------- */
+let statsEleves = {}; // eleve_id -> { note, absences }
+
+async function chargerStats() {
+  statsEleves = {};
+  if (!eleves.length) return;
+
+  const ids = eleves.map((e) => e.id);
+
+  // Charger les codes (pour connaître valeur + repérer le code A)
+  const { data: codes } = await sb.from("codes").select("id, code, valeur");
+  const valeurParId = new Map((codes || []).map((c) => [c.id, c.valeur || 0]));
+  const codeAId = (codes || []).find((c) => c.code === "A")?.id;
+
+  // Le mois en cours (AAAA-MM)
+  const moisCourant = new Date().toISOString().slice(0, 7);
+
+  // Toutes les annotations des élèves
+  const { data: annots } = await sb
+    .from("annotations")
+    .select("eleve_id, code_id, date")
+    .in("eleve_id", ids);
+
+  // Initialiser
+  eleves.forEach((e) => { statsEleves[e.id] = { note: 10, absences: 0 }; });
+
+  (annots || []).forEach((a) => {
+    const st = statsEleves[a.eleve_id];
+    if (!st) return;
+    // Note d'engagement : points du mois en cours
+    if (a.date && a.date.slice(0, 7) === moisCourant) {
+      st.note += valeurParId.get(a.code_id) || 0;
+    }
+    // Absences : code A sur toute l'année
+    if (codeAId && a.code_id === codeAId) {
+      st.absences += 1;
+    }
+  });
 }
 
 /* ---------------------------------------------------
@@ -134,10 +180,13 @@ function contenuOnglet() {
   if (ongletActif === "engagement") {
     return `
       <div class="carte">
-        <p class="hint">Note d'engagement (10/20 par mois). Calcul à brancher sur les annotations du Plan.</p>
+        <p class="hint">Note d'engagement du mois : 10 + somme des points des codes du mois.</p>
         <table class="grille-edt">
           <tr><th>Élève</th><th>Note du mois</th></tr>
-          ${eleves.map((e) => `<tr><td>${e.prenom} ${e.nom}</td><td>10,00</td></tr>`).join("")}
+          ${eleves.map((e) => {
+            const note = statsEleves[e.id] ? statsEleves[e.id].note : 10;
+            return `<tr><td>${e.prenom} ${e.nom}</td><td>${note.toFixed(2).replace(".", ",")}</td></tr>`;
+          }).join("")}
         </table>
       </div>
     `;
@@ -146,10 +195,13 @@ function contenuOnglet() {
   if (ongletActif === "absences") {
     return `
       <div class="carte">
-        <p class="hint">Absences par trimestre (issues du code A du Plan). À brancher.</p>
+        <p class="hint">Nombre d'absences (code A posé dans le Plan).</p>
         <table class="grille-edt">
           <tr><th>Élève</th><th>Absences</th></tr>
-          ${eleves.map((e) => `<tr><td>${e.prenom} ${e.nom}</td><td>0</td></tr>`).join("")}
+          ${eleves.map((e) => {
+            const abs = statsEleves[e.id] ? statsEleves[e.id].absences : 0;
+            return `<tr><td>${e.prenom} ${e.nom}</td><td>${abs}</td></tr>`;
+          }).join("")}
         </table>
       </div>
     `;
